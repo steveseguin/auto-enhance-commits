@@ -19,7 +19,7 @@ When triggered by pushes or PR events, the action:
 
 ![image](https://github.com/user-attachments/assets/26d057f2-03bb-44f5-9378-c82cf5d04eee)
 
-[Link to this commit and the repo using this Github Action!](https://github.com/steveseguin/social_stream/commit/78317940c7c4096f81f4bdffbacd672a8feeddf7)
+[Go check out this AI-generated commit yourself and explore the repo that is using this Github Action!](https://github.com/steveseguin/social_stream/commit/78317940c7c4096f81f4bdffbacd672a8feeddf7)
 
 ## Requirements 🔑
 
