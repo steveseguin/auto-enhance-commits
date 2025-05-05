@@ -15,6 +15,11 @@ When triggered by pushes or PR events, the action:
 
 **Key Feature:** Modifies Git history by amending commits and force-pushing. Be aware of implications when working in shared branches.
 
+## Example Commit
+
+![image](https://github.com/user-attachments/assets/26d057f2-03bb-44f5-9378-c82cf5d04eee)
+From: https://github.com/steveseguin/social_stream/commit/78317940c7c4096f81f4bdffbacd672a8feeddf7
+
 ## Requirements 🔑
 
 - GitHub repository
@@ -62,9 +67,6 @@ The script provides robust repository context to Gemini:
 * **Key Components:** Important files/directories
 * **Technology Stack:** Languages and technologies used
 ```
-## Example Commit
-
-![image](https://github.com/user-attachments/assets/26d057f2-03bb-44f5-9378-c82cf5d04eee)
 
 ## Security Considerations 🔒
 
