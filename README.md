@@ -1,6 +1,6 @@
 # Commit Message Enhancer
 
-This GitHub Action automatically enhances your commit messages and pull request descriptions using Google's Gemini API. It aims to create more descriptive and consistent commit histories and clearer pull requests based on the code changes.
+This GitHub Action automatically enhances your commit messages and pull request descriptions using Google's Gemini API (or other). It aims to create more descriptive and consistent commit histories and clearer pull requests based on the code changes.
 
 ## How It Works
 
