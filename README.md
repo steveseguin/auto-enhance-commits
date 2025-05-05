@@ -1,14 +1,10 @@
 # Commit Message Enhancer 🚀
 
-[![GitHub Actions Status](https://github.com/steveseguin/auto-enhance-commits/actions/workflows/enhance-commits.yml/badge.svg)](https://github.com/steveseguin/auto-enhance-commits/actions/workflows/enhance-commits.yml)
-
 > 💡 Automatically generate detailed, consistent commit messages and PR descriptions using Google's Gemini AI
 
 This GitHub Action transforms basic commit messages into comprehensive, contextual descriptions by analyzing your code changes. Say goodbye to cryptic commit histories and hello to clear, professional documentation of your development process.
 
 ## How It Works 🔄
-
-![Commit Enhancement Flow](https://api.placeholder.com/400/320)
 
 When triggered by pushes or PR events, the action:
 
@@ -18,6 +14,12 @@ When triggered by pushes or PR events, the action:
 4. Updates the commit message or PR description automatically
 
 **Key Feature:** Modifies Git history by amending commits and force-pushing. Be aware of implications when working in shared branches.
+
+## Example Commit
+
+![image](https://github.com/user-attachments/assets/26d057f2-03bb-44f5-9378-c82cf5d04eee)
+
+[Source](https://github.com/steveseguin/social_stream/commit/78317940c7c4096f81f4bdffbacd672a8feeddf7)
 
 ## Requirements 🔑
 
