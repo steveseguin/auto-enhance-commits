@@ -18,8 +18,7 @@ When triggered by pushes or PR events, the action:
 ## Example Commit
 
 ![image](https://github.com/user-attachments/assets/26d057f2-03bb-44f5-9378-c82cf5d04eee)
-
-From: https://github.com/steveseguin/social_stream/commit/78317940c7c4096f81f4bdffbacd672a8feeddf7
+[Source](https://github.com/steveseguin/social_stream/commit/78317940c7c4096f81f4bdffbacd672a8feeddf7)
 
 ## Requirements 🔑
 
