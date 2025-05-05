@@ -1,6 +1,6 @@
 # Commit Message Enhancer
 
-[![GitHub Actions Status](https://github.com/<YOUR_USERNAME>/<YOUR_REPO>/actions/workflows/enhance-commits.yml/badge.svg)](https://github.com/<YOUR_USERNAME>/<YOUR_REPO>/actions/workflows/enhance-commits.yml) This GitHub Action automatically enhances your commit messages and pull request descriptions using Google's Gemini API. It aims to create more descriptive and consistent commit histories and clearer pull requests based on the code changes.
+[![GitHub Actions Status](https://github.com/steveseguin/auto-enhance-commits/actions/workflows/enhance-commits.yml/badge.svg)](https://github.com/steveseguin/auto-enhance-commits/actions/workflows/enhance-commits.yml) This GitHub Action automatically enhances your commit messages and pull request descriptions using Google's Gemini API. It aims to create more descriptive and consistent commit histories and clearer pull requests based on the code changes.
 
 ## How It Works
 
