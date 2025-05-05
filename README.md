@@ -1,10 +1,14 @@
 # Commit Message Enhancer 🚀
 
+[![GitHub Actions Status](https://github.com/steveseguin/auto-enhance-commits/actions/workflows/enhance-commits.yml/badge.svg)](https://github.com/steveseguin/auto-enhance-commits/actions/workflows/enhance-commits.yml)
+
 > 💡 Automatically generate detailed, consistent commit messages and PR descriptions using Google's Gemini AI
 
 This GitHub Action transforms basic commit messages into comprehensive, contextual descriptions by analyzing your code changes. Say goodbye to cryptic commit histories and hello to clear, professional documentation of your development process.
 
 ## How It Works 🔄
+
+![Commit Enhancement Flow](https://api.placeholder.com/400/320)
 
 When triggered by pushes or PR events, the action:
 
@@ -14,12 +18,6 @@ When triggered by pushes or PR events, the action:
 4. Updates the commit message or PR description automatically
 
 **Key Feature:** Modifies Git history by amending commits and force-pushing. Be aware of implications when working in shared branches.
-
-## Example Commit
-
-![image](https://github.com/user-attachments/assets/26d057f2-03bb-44f5-9378-c82cf5d04eee)
-
-[Source](https://github.com/steveseguin/social_stream/commit/78317940c7c4096f81f4bdffbacd672a8feeddf7)
 
 ## Requirements 🔑
 
@@ -40,7 +38,12 @@ When triggered by pushes or PR events, the action:
 
 2. **Generate API Keys**:
    - **Gemini API Key**: Get from [Google AI Studio](https://makersuite.google.com/)
-   - **GitHub PAT**: Create with `repo` and `workflow` scopes
+   - **GitHub PAT**: 
+   1. Go to GitHub → Settings → Developer settings → Personal access tokens
+   2. Create a new token (classic) or fine-grained token
+   3. For fine-grained tokens, ensure it has these permissions:
+      - Repository permissions: Read and Write access for "Contents" and "Pull requests"
+   4. For classic tokens, select the `repo` scope (which includes pull request access)
 
 3. **Add Repository Secrets**:
    - Add `GEMINI_API_KEY` and `COMMIT_ENHANCER_PAT` in your repo settings
@@ -52,9 +55,29 @@ When triggered by pushes or PR events, the action:
 The main script in `.github/scripts/enhance-commits.js` can be customized:
 
 - Adjust `MAX_DIFF_SIZE` and sampling parameters
-- Change the Gemini model (default: `gemini-2.5-flash-preview-04-17`)
+- Change the AI model (default: `gemini-2.5-flash-preview-04-17` - note this is a preview model that will require updating as Google releases new models)
+- Customize the AI provider by modifying the API endpoint - you can replace Gemini with ChatGPT, Ollama, or other AI services by updating the API integration code
 - Modify the prompt templates for your specific project needs
 - Add your project context to improve AI understanding
+
+### Component Mapping
+
+**Important:** You must update the component mapping in the script to reflect your project structure:
+
+```javascript
+// In enhance-commits.js
+const componentMapping = {
+  'sources': 'Platform Integrations',
+  'themes': 'Theming',
+  'dock.html': 'Consolidated Chat Dashboard and Overlay UI',
+  'featured.html': 'Featured Overlay UI',
+  'background.js': 'Extension Core Logic and Message Routing',
+  'manifest.json': 'Extension Manifest'
+  // Replace with your project's file paths and component descriptions
+};
+```
+
+This mapping helps the AI understand the purpose of different files in your project and creates more meaningful commit messages.
 
 ### Custom Repository Context
 
@@ -68,6 +91,29 @@ The script provides robust repository context to Gemini:
 * **Key Components:** Important files/directories
 * **Technology Stack:** Languages and technologies used
 ```
+
+### AI Provider Flexibility
+
+While the script uses Google's Gemini API by default, you can modify it to work with other AI providers:
+
+```javascript
+// Example: Replace Gemini implementation with another LLM API
+// 1. Update the imports and initialization
+// const { OpenAI } = require('openai'); // Instead of GoogleGenerativeAI
+// const client = new OpenAI(process.env.OPENAI_API_KEY); // Use your preferred API key
+
+// 2. Modify the API call in enhanceCommitMessage function
+// const result = await client.chat.completions.create({
+//   model: "gpt-4",
+//   messages: [{ role: "user", content: prompt }]
+// });
+// return result.choices[0].message.content;
+```
+
+You can adapt the code to work with:
+- OpenAI's ChatGPT models
+- Local models via Ollama
+- Other commercial or open-source LLM providers
 
 ## Security Considerations 🔒
 
