@@ -182,6 +182,29 @@ While the script uses Google's Gemini API by default, you can modify it to work 
 - **Large Commits**: Very large changes are sampled and truncated before sending to the API
 - **Binary Files**: Binary files are detected and handled appropriately in diffs
 
+## ⚠️ Cost and Risk Disclaimer ⚠️
+
+**Potential Costs:**
+- **API Usage Fees**: Gemini API may incur charges based on usage volume and model selection. Monitor your Google Cloud billing closely.
+- **GitHub Actions Minutes**: This workflow consumes GitHub Actions minutes, which may affect monthly allocation for private repositories.
+
+**Potential Issues:**
+- **Infinite Loop Risk**: Without proper safeguards, the action could potentially trigger itself repeatedly, resulting in excessive API calls and costs.
+- **Git History Modification**: The force-push mechanism alters Git history, which can cause conflicts in collaborative environments.
+- **API Rate Limiting**: Frequent commits might hit rate limits with the Gemini API.
+- **False Positives**: AI may occasionally misinterpret code changes, resulting in inaccurate commit messages.
+- **Content Filtering**: Some valid technical terms or code snippets might be filtered by AI content policies.
+
+**Recommended Safeguards:**
+- Implement a commit message tag that can skip enhancement (e.g., "[no-enhance]")
+- Add logic to detect and break potential recursive triggers
+- Set budget alerts on your Google Cloud account
+- Test thoroughly in a non-critical branch before deploying to main branches
+
+## General Warning ⚠️
+- When deploying and using the action, make sure it doesn't get stuck in a loop running endlessly
+- This could either exhaust your LLM API tokens allowances, or end up costing you some money
+
 ## Error Handling 🛠️
 
 The script includes robust error handling:
