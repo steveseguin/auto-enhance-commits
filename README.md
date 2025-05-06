@@ -9,9 +9,10 @@ This GitHub Action transforms basic commit messages into comprehensive, contextu
 When triggered by pushes or PR events, the action:
 
 1. Extracts code changes (diff) from commits or PRs
-2. Sends the original message and diff to Gemini API
-3. Generates a detailed enhancement based on your code context
-4. Updates the commit message or PR description automatically
+2. Analyzes directory structure and recent branch history
+3. Sends the original message, diff, and context to Gemini API
+4. Generates a detailed enhancement using Conventional Commits format
+5. Updates the commit message or PR description automatically
 
 **Key Feature:** Modifies Git history by amending commits and force-pushing. Be aware of implications when working in shared branches.
 
@@ -50,17 +51,74 @@ When triggered by pushes or PR events, the action:
 3. **Add Repository Secrets**:
    - Add `GEMINI_API_KEY` and `COMMIT_ENHANCER_PAT` in your repo settings
 
-4. **Deploy the files** and push to your repository
+4. **Create workflow file** at `.github/workflows/enhance-commits.yml`:
+   ```yaml
+   name: Enhance Commit Messages
+   on:
+     push:
+       branches: [main, master, develop] # Customize as needed
+     pull_request:
+       types: [ opened, synchronize ]
+   jobs:
+     enhance-commits:
+       runs-on: ubuntu-latest
+       permissions:
+         contents: write
+         pull-requests: write
+       steps:
+         - name: Checkout code
+           uses: actions/checkout@v3
+           with:
+             fetch-depth: 2
+             token: ${{ secrets.COMMIT_ENHANCER_PAT }}
+         - name: Setup Node.js
+           uses: actions/setup-node@v3
+           with:
+             node-version: '18'
+         - name: Install dependencies
+           run: npm install @google/generative-ai axios
+         - name: Configure Git
+           run: |
+             git config --global user.name "GitHub Actions Commit Enhancer"
+             git config --global user.email "actions@github.com"
+         - name: Enhance commit messages
+           id: enhance
+           env:
+             GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+             GITHUB_TOKEN: ${{ secrets.COMMIT_ENHANCER_PAT }}
+           run: node .github/scripts/enhance-commits.js
+   ```
+
+5. **Deploy the script** to `.github/scripts/enhance-commits.js` and push to your repository
+
+## Advanced Features 🔧
+
+- **Smart Diff Handling**: Automatically handles binary files and large diffs
+- **Directory Analysis**: Creates a component-aware summary of changes
+- **Branch History Analysis**: Incorporates recent commits on the branch for context
+- **Conventional Commits Format**: Generates type-scoped messages (feat, fix, etc.)
+- **PR Description Enhancement**: Automatically improves PR descriptions with Markdown formatting
 
 ## Customization ⚙️
 
 The main script in `.github/scripts/enhance-commits.js` can be customized:
 
-- Adjust `MAX_DIFF_SIZE` and sampling parameters
-- Change the AI model (default: `gemini-2.5-flash-preview-04-17` - note this is a preview model that will require updating as Google releases new models)
-- Customize the AI provider by modifying the API endpoint - you can replace Gemini with ChatGPT, Ollama, or other AI services by updating the API integration code
-- Modify the prompt templates for your specific project needs
-- Add your project context to improve AI understanding
+```javascript
+// Configuration options
+const MAX_DIFF_SIZE = 20000; // Characters - truncate if larger
+const MAX_FILES_TO_SAMPLE = 5; // Maximum number of files to include in the diff
+const SAMPLE_LINES_PER_FILE = 200; // Maximum lines to include per file
+```
+
+### AI Model
+
+The script uses Google's Gemini 2.5 Flash Preview model by default:
+
+```javascript 
+model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-preview-04-17' });
+```
+
+You can update to newer models as Google releases them.
 
 ### Component Mapping
 
@@ -74,7 +132,9 @@ const componentMapping = {
   'dock.html': 'Consolidated Chat Dashboard and Overlay UI',
   'featured.html': 'Featured Overlay UI',
   'background.js': 'Extension Core Logic and Message Routing',
-  'manifest.json': 'Extension Manifest'
+  'manifest.json': 'Extension Manifest',
+  '.github': 'GitHub Actions/Workflows',
+  'scripts': 'Utility Scripts'
   // Replace with your project's file paths and component descriptions
 };
 ```
@@ -94,6 +154,8 @@ The script provides robust repository context to Gemini:
 * **Technology Stack:** Languages and technologies used
 ```
 
+Modify this context in the prompt template to match your project's specifics.
+
 ### AI Provider Flexibility
 
 While the script uses Google's Gemini API by default, you can modify it to work with other AI providers:
@@ -112,24 +174,28 @@ While the script uses Google's Gemini API by default, you can modify it to work 
 // return result.choices[0].message.content;
 ```
 
-You can adapt the code to work with:
-- OpenAI's ChatGPT models
-- Local models via Ollama
-- Other commercial or open-source LLM providers
-
 ## Security Considerations 🔒
 
-- **Force Pushing**: This action uses `git push --force` - use carefully in shared branches
+- **Force Pushing**: This action uses `git push --force --no-verify` - use carefully in shared branches
 - **Token Security**: Keep API keys and PATs secure using GitHub Secrets
 - **API Costs**: Monitor Gemini API usage to avoid unexpected charges
-- **Large Commits**: Very large changes may be truncated before sending to the API
+- **Large Commits**: Very large changes are sampled and truncated before sending to the API
+- **Binary Files**: Binary files are detected and handled appropriately in diffs
+
+## Error Handling 🛠️
+
+The script includes robust error handling:
+- Custom ScriptError class with context
+- Structured logging with levels (debug, info, warn, error)
+- Graceful degradation if specific operations fail
 
 ## Troubleshooting 🛠️
 
-- Check action logs for specific error messages
-- Verify secret names and permissions
+- Check action logs for specific error messages (look for `[ERROR]` entries)
+- Verify secret names and permissions 
 - Validate API keys are active and correct
 - Consider breaking down large commits if exceeding size limits
+- If PR description updates fail, check your PAT permissions
 
 ## License 📄
 
