@@ -2,7 +2,7 @@ name: Enhance Commit Messages
 
 on:
   push:
-    branches: [beta ]
+    branches: [ main, master, beta, develop ]
   pull_request:
     types: [ opened, synchronize ]
 
