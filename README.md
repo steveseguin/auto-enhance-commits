@@ -56,37 +56,108 @@ When triggered by pushes or PR events, the action:
    name: Enhance Commit Messages
    on:
      push:
-       branches: [main, master, develop] # Customize as needed
+       branches: [main, master, beta, develop]
      pull_request:
-       types: [ opened, synchronize ]
+       types: [opened, synchronize]
    jobs:
      enhance-commits:
        runs-on: ubuntu-latest
+       if: |
+         !contains(github.event.head_commit.message, 'Enhance Commit Messages') && 
+         !contains(github.event_name, 'pages-build-deployment') && 
+         !contains(github.event.head_commit.message, 'Update enhance-commits') && 
+         !contains(github.event.head_commit.message, '[no-enhance]') &&
+         !startsWith(github.event.head_commit.message, '```') &&
+         !contains(github.event.head_commit.message, 'Merge pull request') &&
+         !contains(github.event.head_commit.message, 'Merge branch') &&
+         !contains(github.event.head_commit.message, 'Version bump') &&
+         !contains(github.event.head_commit.message, 'Release v')
        permissions:
          contents: write
          pull-requests: write
+       concurrency:
+         group: enhance-commits-${{ github.ref }}
+         cancel-in-progress: true
        steps:
          - name: Checkout code
-           uses: actions/checkout@v3
+           uses: actions/checkout@v4
            with:
-             fetch-depth: 2
+             fetch-depth: 5
              token: ${{ secrets.COMMIT_ENHANCER_PAT }}
+         
+         - name: Check last run time
+           id: check_time
+           run: |
+             CURRENT_TIME=$(date +%s)
+             LAST_RUN_FILE=".last_enhance_run"
+             
+             # Create timestamp dir if it doesn't exist
+             mkdir -p $(dirname "$LAST_RUN_FILE")
+             
+             # Check if file exists and is non-empty
+             if [ -f "$LAST_RUN_FILE" ]; then
+               if [ -s "$LAST_RUN_FILE" ]; then
+                 LAST_RUN=$(cat "$LAST_RUN_FILE")
+                 # Verify it's a valid number
+                 if [[ "$LAST_RUN" =~ ^[0-9]+$ ]]; then
+                   TIME_DIFF=$((CURRENT_TIME - LAST_RUN))
+                   
+                   if [ $TIME_DIFF -lt 300 ]; then
+                     echo "Too soon since last run (${TIME_DIFF}s). Skipping."
+                     echo "skip=true" >> $GITHUB_OUTPUT
+                     exit 0
+                   else
+                     echo "Last run was ${TIME_DIFF}s ago. Proceeding."
+                   fi
+                 else
+                   echo "Invalid timestamp in file. Continuing."
+                 fi
+               else
+                 echo "Empty timestamp file. Continuing."
+               fi
+             else
+               echo "No timestamp file found. Continuing."
+             fi
+             
+             echo "$CURRENT_TIME" > "$LAST_RUN_FILE"
+             echo "skip=false" >> $GITHUB_OUTPUT
+         
          - name: Setup Node.js
+           if: steps.check_time.outputs.skip != 'true'
            uses: actions/setup-node@v3
            with:
              node-version: '18'
+             cache: 'npm'
+         
          - name: Install dependencies
+           if: steps.check_time.outputs.skip != 'true'
            run: npm install @google/generative-ai axios
+         
          - name: Configure Git
+           if: steps.check_time.outputs.skip != 'true'
            run: |
              git config --global user.name "GitHub Actions Commit Enhancer"
              git config --global user.email "actions@github.com"
+             
          - name: Enhance commit messages
+           if: steps.check_time.outputs.skip != 'true'
            id: enhance
            env:
              GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
              GITHUB_TOKEN: ${{ secrets.COMMIT_ENHANCER_PAT }}
-           run: node .github/scripts/enhance-commits.js
+             ENHANCE_SKIP_TERMS: "Update enhance-commits,Enhance Commit Messages,skip ci,Merge pull,Version bump,Release v"
+           run: |
+             node .github/scripts/enhance-commits.js || {
+               echo "::error::Failed to enhance commit messages"
+               exit 1
+             }
+         
+         - name: Update timestamp file
+           if: steps.check_time.outputs.skip != 'true'
+           run: |
+             git add "$LAST_RUN_FILE"
+             git commit -m "Update enhance-commits timestamp [skip ci]" || echo "No changes to commit"
+             git push origin ${GITHUB_REF_NAME} || echo "::warning::Failed to push timestamp update"
    ```
 
 5. **Deploy the script** to `.github/scripts/enhance-commits.js` and push to your repository
@@ -98,6 +169,25 @@ When triggered by pushes or PR events, the action:
 - **Branch History Analysis**: Incorporates recent commits on the branch for context
 - **Conventional Commits Format**: Generates type-scoped messages (feat, fix, etc.)
 - **PR Description Enhancement**: Automatically improves PR descriptions with Markdown formatting
+- **Loop Prevention**: Rate limiting (5-minute cooldown) and commit message filtering
+- **Concurrency Control**: Prevents multiple instances from running simultaneously
+
+## Anti-Looping Safeguards ⚠️
+
+The action now includes several mechanisms to prevent infinite loops:
+
+1. **Rate Limiting**: Enforces a 5-minute cooldown between runs
+2. **Message Filtering**: Skips commits with specific terms in the message:
+   - `Enhance Commit Messages`
+   - `Update enhance-commits`
+   - `[no-enhance]` (manual skip tag)
+   - `Merge pull request`
+   - `Merge branch`
+   - `Version bump`
+   - `Release v`
+3. **Branch Filtering**: Only runs on specific branches (main, master, beta, develop)
+4. **Event Filtering**: Skips pages-build-deployment events
+5. **Concurrency Control**: Uses GitHub's concurrency groups to prevent parallel runs
 
 ## Customization ⚙️
 
@@ -108,6 +198,7 @@ The main script in `.github/scripts/enhance-commits.js` can be customized:
 const MAX_DIFF_SIZE = 20000; // Characters - truncate if larger
 const MAX_FILES_TO_SAMPLE = 5; // Maximum number of files to include in the diff
 const SAMPLE_LINES_PER_FILE = 200; // Maximum lines to include per file
+const MIN_RUN_INTERVAL = 300; // Minimum seconds between runs (5 minutes)
 ```
 
 ### AI Model
@@ -181,6 +272,7 @@ While the script uses Google's Gemini API by default, you can modify it to work 
 - **API Costs**: Monitor Gemini API usage to avoid unexpected charges
 - **Large Commits**: Very large changes are sampled and truncated before sending to the API
 - **Binary Files**: Binary files are detected and handled appropriately in diffs
+- **Timestamp Tracking**: Uses a timestamp file to enforce rate limiting between runs
 
 ## ⚠️ Cost and Risk Disclaimer ⚠️
 
@@ -189,21 +281,18 @@ While the script uses Google's Gemini API by default, you can modify it to work 
 - **GitHub Actions Minutes**: This workflow consumes GitHub Actions minutes, which may affect monthly allocation for private repositories.
 
 **Potential Issues:**
-- **Infinite Loop Risk**: Without proper safeguards, the action could potentially trigger itself repeatedly, resulting in excessive API calls and costs.
+- **Infinite Loop Risk**: Now mitigated with multiple safeguards: commit message filtering, rate limiting, and branch filtering.
 - **Git History Modification**: The force-push mechanism alters Git history, which can cause conflicts in collaborative environments.
 - **API Rate Limiting**: Frequent commits might hit rate limits with the Gemini API.
 - **False Positives**: AI may occasionally misinterpret code changes, resulting in inaccurate commit messages.
 - **Content Filtering**: Some valid technical terms or code snippets might be filtered by AI content policies.
 
-**Recommended Safeguards:**
-- Implement a commit message tag that can skip enhancement (e.g., "[no-enhance]")
-- Add logic to detect and break potential recursive triggers
-- Set budget alerts on your Google Cloud account
-- Test thoroughly in a non-critical branch before deploying to main branches
-
-## General Warning ⚠️
-- When deploying and using the action, make sure it doesn't get stuck in a loop running endlessly
-- This could either exhaust your LLM API tokens allowances, or end up costing you some money
+**Implemented Safeguards:**
+- Commit message tag that can skip enhancement (e.g., "[no-enhance]")
+- Timestamp-based rate limiting (5-minute cooldown)
+- Message content filtering to prevent recursive triggers
+- Concurrency control to prevent parallel runs
+- Branch filtering to limit where the action runs
 
 ## Error Handling 🛠️
 
@@ -219,6 +308,7 @@ The script includes robust error handling:
 - Validate API keys are active and correct
 - Consider breaking down large commits if exceeding size limits
 - If PR description updates fail, check your PAT permissions
+- If the action seems to be running in a loop, check the `.last_enhance_run` file and consider adding more skip terms
 
 ## License 📄
 
