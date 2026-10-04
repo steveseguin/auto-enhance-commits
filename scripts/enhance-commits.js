@@ -452,15 +452,32 @@ ${recentCommitLines}
 // --- Git Update ---
 
 /**
- * Amends the last commit with a new message and force-pushes.
+ * Amends the analyzed commit and publishes only if its remote tip is unchanged.
  * @param {string} newMessage - The new commit message.
+ * @param {string} expectedSha - The original commit SHA captured before analysis.
  * @returns {Promise<boolean>} - True if successful, false otherwise.
  */
-async function updateCommitMessage(newMessage) {
+async function updateCommitMessage(newMessage, expectedSha) {
   log('info', 'Updating commit message...');
   const tempFilePath = path.join(process.cwd(), `.git-commit-msg-${Date.now()}.tmp`); // Unique temp file
 
   try {
+    // Pin the lease to the commit we analyzed, not a remote-tracking ref that a
+    // later fetch may have refreshed while Gemini was generating the message.
+    if (!/^[0-9a-f]{40,64}$/i.test(expectedSha || '')) {
+      throw new Error('A valid analyzed commit SHA is required before amending.');
+    }
+    if (await getLastCommit() !== expectedSha) {
+      throw new Error('The local checkout changed after commit analysis.');
+    }
+    const quote = value => "'" + value.replace(/'/g, "'\\''") + "'";
+    const branch = await runCommand('git symbolic-ref --quiet --short HEAD');
+    const remote = await runCommand(`git config --get ${quote(`branch.${branch}.remote`)}`);
+    const targetRef = await runCommand(`git config --get ${quote(`branch.${branch}.merge`)}`);
+    if (remote === '.' || !targetRef.startsWith('refs/heads/')) {
+      throw new Error('A remote branch upstream is required before amending.');
+    }
+
     // Configure Git user for the action (important for amend)
     // Check if already configured to avoid redundant calls/warnings
     try {
@@ -481,12 +498,10 @@ async function updateCommitMessage(newMessage) {
     log('info', 'Amending commit with new message...');
     await runCommand(`git commit --amend -F "${tempFilePath}"`); // Use quotes for path safety
 
-    // Force push the amended commit
-    // Use --force-with-lease as a slightly safer alternative if possible,
-    // but standard --force is often needed in this CI amend scenario.
-    // Adding --no-verify to skip any potential pre-push hooks.
-    log('info', 'Force-pushing amended commit (with --no-verify)...');
-    await runCommand('git push --force --no-verify');
+    // Atomically refuse publication if the remote no longer points to the
+    // analyzed commit. Never overwrite commits pushed while AI work was running.
+    log('info', 'Publishing amended commit with an exact-SHA lease...');
+    await runCommand(`git push --no-verify ${quote(`--force-with-lease=${targetRef}:${expectedSha}`)} -- ${quote(remote)} ${quote(`HEAD:${targetRef}`)}`);
 
     log('info', 'Commit amended and pushed successfully.');
     return true;
@@ -715,7 +730,7 @@ async function main() {
     }
 
     // Update the commit message and force push
-    const updated = await updateCommitMessage(enhancedMessage);
+    const updated = await updateCommitMessage(enhancedMessage, commitSha);
 
     if (updated) {
       log('info', 'Commit message enhanced and pushed successfully.');
@@ -745,3 +760,4 @@ main().catch(error => {
   });
   process.exit(1);
 });
+
