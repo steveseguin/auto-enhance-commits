@@ -1,4 +1,4 @@
-const { exec } = require('child_process');
+const { exec, execFile } = require('child_process');
 const fs = require('fs').promises;
 const path = require('path');
 const axios = require('axios');
@@ -114,20 +114,28 @@ async function getBranchName() {
  */
 async function getChangedFiles(commitSha) {
   // Use --no-renames to simplify status (M, A, D, T)
-  const diffOutput = await runCommand(`git show ${commitSha} --oneline --name-status --no-renames`);
-  // Output format:
-  // <sha> <subject>
-  // M       path/to/modified/file.txt
-  // A       path/to/added/file.txt
-  // D       path/to/deleted/file.txt
-  return diffOutput
-    .split('\n')
-    .slice(1) // Skip the first line (commit subject)
-    .filter(line => /^[MADT]\t/.test(line.trim())) // Filter for valid status lines
-    .map(line => {
-      const [status, file] = line.trim().split('\t');
-      return { status, file };
+  const diffOutput = await runGitRead(['show', commitSha, '--format=', '--name-status', '--no-renames', '-z']);
+  const fields = diffOutput.split('\0');
+  const changedFiles = [];
+  for (let i = 0; i + 1 < fields.length; i += 2) {
+    const status = fields[i];
+    const file = fields[i + 1];
+    if (/^[MADT]$/.test(status)) changedFiles.push({ status, file });
+  }
+  return changedFiles;
+}
+
+/** Runs a Git read with literal argv and preserves whitespace in its output. */
+async function runGitRead(args) {
+  return new Promise((resolve, reject) => {
+    execFile('git', ['--literal-pathspecs', ...args], { maxBuffer: 20 * 1024 * 1024 }, (error, stdout, stderr) => {
+      if (error) {
+        reject(new ScriptError('Git read failed.', { args, stderr, error }));
+        return;
+      }
+      resolve(stdout);
     });
+  });
 }
 
 /**
@@ -215,7 +223,7 @@ async function getCommitDiff(commitSha, changedFiles) {
       // Check if the file is binary *before* trying to get diff content
       // Using `git diff --numstat` is a safer way to check type before `git show`
       // Use commitSha^! which means "diff between parent and commitSha"
-      const diffStat = await runCommand(`git diff --numstat ${commitSha}^! -- "${file}"`);
+      const diffStat = await runGitRead(['diff', '--numstat', `${commitSha}^!`, '--', file]);
       const isBinary = diffStat.startsWith('-\t-'); // Binary files show as "- -" for added/deleted lines
 
       if (isBinary) {
@@ -226,7 +234,7 @@ async function getCommitDiff(commitSha, changedFiles) {
       } else if (status === 'A' || status === 'M' || status === 'T') {
         // For added, modified, or type-changed text files, get the diff
         // Use --unified=5 for a bit more context around changes
-        const rawDiff = await runCommand(`git show --unified=5 ${commitSha} -- "${file}"`);
+        const rawDiff = await runGitRead(['show', '--unified=5', commitSha, '--', file]);
         const diffLines = rawDiff.split('\n');
 
         // Sample the diff if it's too large
